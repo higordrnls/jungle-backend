@@ -6,9 +6,10 @@ const server = createServer((req, res) => {
     res.writeHead(200);
     res.end("Lista de usuários");
   } else {
-    res.writeHead(200);
-    res.end("Meu primeiro backend está funcionando!");
+  res.writeHead(404);
+  res.end("Rota não encontrada");
   }
+
 });
 
 server.listen(3000, () => {
