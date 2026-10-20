@@ -1,8 +1,6 @@
 
+import { pool } from "../db";
 import type { Usuario } from "../types/usuario";
-
-const usuarios: Usuario[] = [];
-let proximoId = 1;
 
 export class ErroUsuario extends Error {
   constructor(
@@ -42,64 +40,72 @@ function validarDados(dados: unknown): {
   };
 }
 
-export function listarUsuarios(): Usuario[] {
-  return usuarios;
+export async function listarUsuarios(): Promise<Usuario[]> {
+  const resultado = await pool.query(
+    "SELECT id, nome, email FROM usuarios ORDER BY id"
+  );
+
+  return resultado.rows;
 }
 
-export function buscarUsuario(id: number): Usuario {
-  const usuario = usuarios.find((item) => item.id === id);
+export async function buscarUsuario(id: number): Promise<Usuario> {
+  const resultado = await pool.query(
+    "SELECT id, nome, email FROM usuarios WHERE id = $1",
+    [id]
+  );
 
-  if (!usuario) {
+  if (resultado.rows.length === 0) {
     throw new ErroUsuario("Usuário não encontrado", 404);
   }
 
-  return usuario;
+  return resultado.rows[0];
 }
 
-export function criarUsuario(dados: unknown): Usuario {
+export async function criarUsuario(dados: unknown): Promise<Usuario> {
   const dadosValidados = validarDados(dados);
 
-  const novoUsuario: Usuario = {
-    id: proximoId,
-    ...dadosValidados,
-  };
+  const resultado = await pool.query(
+    `INSERT INTO usuarios (nome, email)
+     VALUES ($1, $2)
+     RETURNING id, nome, email`,
+    [dadosValidados.nome, dadosValidados.email]
+  );
 
-  usuarios.push(novoUsuario);
-  proximoId++;
-
-  return novoUsuario;
+  return resultado.rows[0];
 }
 
-export function atualizarUsuario(
+export async function atualizarUsuario(
   id: number,
   dados: unknown
-): Usuario {
-  const indice = usuarios.findIndex((item) => item.id === id);
-
-  if (indice === -1) {
-    throw new ErroUsuario("Usuário não encontrado", 404);
-  }
-
+): Promise<Usuario> {
   const dadosValidados = validarDados(dados);
 
-  const usuarioAtualizado: Usuario = {
-    id,
-    ...dadosValidados,
-  };
+  const resultado = await pool.query(
+    `UPDATE usuarios
+     SET nome = $1, email = $2
+     WHERE id = $3
+     RETURNING id, nome, email`,
+    [dadosValidados.nome, dadosValidados.email, id]
+  );
 
-  usuarios[indice] = usuarioAtualizado;
-
-  return usuarioAtualizado;
-}
-
-export function excluirUsuario(id: number): Usuario {
-  const indice = usuarios.findIndex((item) => item.id === id);
-
-  if (indice === -1) {
+  if (resultado.rows.length === 0) {
     throw new ErroUsuario("Usuário não encontrado", 404);
   }
 
-  const [usuarioRemovido] = usuarios.splice(indice, 1);
+  return resultado.rows[0];
+}
 
-  return usuarioRemovido;
+export async function excluirUsuario(id: number): Promise<Usuario> {
+  const resultado = await pool.query(
+    `DELETE FROM usuarios
+     WHERE id = $1
+     RETURNING id, nome, email`,
+    [id]
+  );
+
+  if (resultado.rows.length === 0) {
+    throw new ErroUsuario("Usuário não encontrado", 404);
+  }
+
+  return resultado.rows[0];
 }

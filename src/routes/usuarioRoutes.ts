@@ -53,13 +53,13 @@ export async function tratarRotas(
 
   try {
     if (rota === "/usuarios" && metodo === "GET") {
-      responder(res, 200, listarUsuarios());
+      responder(res, 200, await listarUsuarios());
       return;
     }
 
     if (rota === "/usuarios" && metodo === "POST") {
       const dados = await lerBody(req);
-      responder(res, 201, criarUsuario(dados));
+      responder(res, 201, await criarUsuario(dados));
       return;
     }
 
@@ -73,18 +73,18 @@ export async function tratarRotas(
       }
 
       if (metodo === "GET") {
-        responder(res, 200, buscarUsuario(id));
+        responder(res, 200, await buscarUsuario(id));
         return;
       }
 
       if (metodo === "PUT") {
         const dados = await lerBody(req);
-        responder(res, 200, atualizarUsuario(id, dados));
+        responder(res, 200, await atualizarUsuario(id, dados));
         return;
       }
 
       if (metodo === "DELETE") {
-        responder(res, 200, excluirUsuario(id));
+        responder(res, 200, await excluirUsuario(id));
         return;
       }
     }
