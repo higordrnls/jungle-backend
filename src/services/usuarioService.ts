@@ -1,44 +1,7 @@
-
 import { pool } from "../db";
 import type { Usuario } from "../types/usuario";
-
-export class ErroUsuario extends Error {
-  constructor(
-    mensagem: string,
-    public status: 400 | 404
-  ) {
-    super(mensagem);
-  }
-}
-
-function validarDados(dados: unknown): {
-  nome: string;
-  email: string;
-} {
-  if (typeof dados !== "object" || dados === null) {
-    throw new ErroUsuario("Dados inválidos", 400);
-  }
-
-  const registro = dados as Record<string, unknown>;
-  const nome = registro.nome;
-  const email = registro.email;
-
-  if (
-    typeof nome !== "string" ||
-    nome.trim() === "" ||
-    typeof email !== "string" ||
-    !email.trim().includes("@") ||
-    email.trim().startsWith("@") ||
-    email.trim().endsWith("@")
-  ) {
-    throw new ErroUsuario("Nome ou email inválido", 400);
-  }
-
-  return {
-    nome: nome.trim(),
-    email: email.trim(),
-  };
-}
+import { ErroUsuario } from "../errors/ErroUsuario";
+import { validarDados } from "../validators/usuarioValidator";
 
 export async function listarUsuarios(): Promise<Usuario[]> {
   const resultado = await pool.query(

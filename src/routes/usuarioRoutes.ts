@@ -1,96 +1,85 @@
-
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
-  atualizarUsuario,
+  listarUsuarios,
   buscarUsuario,
   criarUsuario,
+  atualizarUsuario,
   excluirUsuario,
-  listarUsuarios,
-  ErroUsuario,
 } from "../services/usuarioService";
-
-type Resposta = ServerResponse<IncomingMessage>;
+import { ErroUsuario } from "../errors/ErroUsuario";
 
 function responder(
-  res: Resposta,
+  res: ServerResponse,
   status: number,
   dados: unknown
 ): void {
-  res.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-  });
-
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(dados));
 }
 
-function lerBody(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    let body = "";
+async function lerCorpo(req: IncomingMessage): Promise<unknown> {
+  let corpo = "";
 
-    req.on("data", (chunk) => {
-      body += chunk;
-    });
+  for await (const parte of req) {
+    corpo += parte;
+  }
 
-    req.on("end", () => {
-      try {
-        resolve(JSON.parse(body));
-      } catch {
-        reject(new ErroUsuario("JSON inválido", 400));
-      }
-    });
-
-    req.on("error", reject);
-  });
+  try {
+    return JSON.parse(corpo);
+  } catch {
+    throw new ErroUsuario("JSON inválido", 400);
+  }
 }
 
 export async function tratarRotas(
   req: IncomingMessage,
-  res: Resposta
+  res: ServerResponse
 ): Promise<void> {
-  const url = new URL(req.url ?? "/", "http://localhost:3000");
-  const rota = url.pathname;
-  const metodo = req.method;
+  const metodo = req.method ?? "GET";
+  const url = new URL(req.url ?? "/", "http://localhost");
+  const caminho = url.pathname;
 
   try {
-    if (rota === "/usuarios" && metodo === "GET") {
-      responder(res, 200, await listarUsuarios());
+    if (caminho === "/usuarios" && metodo === "GET") {
+      const usuarios = await listarUsuarios();
+      responder(res, 200, usuarios);
       return;
     }
 
-    if (rota === "/usuarios" && metodo === "POST") {
-      const dados = await lerBody(req);
-      responder(res, 201, await criarUsuario(dados));
+    if (caminho === "/usuarios" && metodo === "POST") {
+      const dados = await lerCorpo(req);
+      const usuario = await criarUsuario(dados);
+      responder(res, 201, usuario);
       return;
     }
 
-    const correspondencia = rota.match(/^\/usuarios\/(\d+)$/);
+    const correspondencia = caminho.match(/^\/usuarios\/(\d+)$/);
 
     if (correspondencia) {
       const id = Number(correspondencia[1]);
 
-      if (!Number.isSafeInteger(id) || id < 1) {
-        throw new ErroUsuario("ID inválido", 400);
-      }
-
       if (metodo === "GET") {
-        responder(res, 200, await buscarUsuario(id));
+        const usuario = await buscarUsuario(id);
+        responder(res, 200, usuario);
         return;
       }
 
       if (metodo === "PUT") {
-        const dados = await lerBody(req);
-        responder(res, 200, await atualizarUsuario(id, dados));
+        const dados = await lerCorpo(req);
+        const usuario = await atualizarUsuario(id, dados);
+        responder(res, 200, usuario);
         return;
       }
 
       if (metodo === "DELETE") {
-        responder(res, 200, await excluirUsuario(id));
+        const usuario = await excluirUsuario(id);
+        responder(res, 200, usuario);
         return;
       }
     }
 
     responder(res, 404, { mensagem: "Rota não encontrada" });
-  } catch (erro) {
+  } catch (erro: unknown) {
     if (erro instanceof ErroUsuario) {
       responder(res, erro.status, { mensagem: erro.message });
       return;
