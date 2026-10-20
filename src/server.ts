@@ -20,7 +20,6 @@ const server = createServer((req, res) => {
     res.writeHead(200, {
       "Content-Type": "application/json; charset=utf-8",
     });
-
     res.end(JSON.stringify(usuarios));
     return;
   }
@@ -36,22 +35,13 @@ const server = createServer((req, res) => {
     req.on("end", () => {
       try {
         const usuario = JSON.parse(body);
-
         const nome = usuario.nome;
         const email = usuario.email;
 
-        if (
-          typeof nome !== "string" ||
-          nome.trim() === "" ||
-          typeof email !== "string" ||
-          !email.includes("@") ||
-          email.startsWith("@") ||
-          email.endsWith("@")
-        ) {
+        if (!validarUsuario(nome, email)) {
           res.writeHead(400, {
             "Content-Type": "text/plain; charset=utf-8",
           });
-
           res.end("Nome ou email inválido");
           return;
         }
@@ -65,18 +55,14 @@ const server = createServer((req, res) => {
         usuarios.push(novoUsuario);
         proximoId++;
 
-        console.log("Usuário cadastrado:", novoUsuario);
-
         res.writeHead(201, {
           "Content-Type": "application/json; charset=utf-8",
         });
-
         res.end(JSON.stringify(novoUsuario));
       } catch {
         res.writeHead(400, {
           "Content-Type": "text/plain; charset=utf-8",
         });
-
         res.end("JSON inválido");
       }
     });
@@ -84,7 +70,7 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // Extrair o ID de rotas como /usuarios/1
+  // Rotas /usuarios/:id
   const rotaUsuario = rota.match(/^\/usuarios\/(\d+)$/);
 
   if (rotaUsuario) {
@@ -94,20 +80,18 @@ const server = createServer((req, res) => {
       res.writeHead(400, {
         "Content-Type": "text/plain; charset=utf-8",
       });
-
       res.end("ID inválido");
       return;
     }
 
     const indice = usuarios.findIndex((usuario) => usuario.id === id);
 
-    // GET /usuarios/:id — buscar um usuário
+    // GET /usuarios/:id — buscar usuário
     if (metodo === "GET") {
       if (indice === -1) {
         res.writeHead(404, {
           "Content-Type": "text/plain; charset=utf-8",
         });
-
         res.end("Usuário não encontrado");
         return;
       }
@@ -115,18 +99,69 @@ const server = createServer((req, res) => {
       res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
       });
-
       res.end(JSON.stringify(usuarios[indice]));
       return;
     }
 
-    // DELETE /usuarios/:id — excluir um usuário
+    // PUT /usuarios/:id — atualizar usuário
+    if (metodo === "PUT") {
+      if (indice === -1) {
+        res.writeHead(404, {
+          "Content-Type": "text/plain; charset=utf-8",
+        });
+        res.end("Usuário não encontrado");
+        return;
+      }
+
+      let body = "";
+
+      req.on("data", (chunk) => {
+        body += chunk;
+      });
+
+      req.on("end", () => {
+        try {
+          const dados = JSON.parse(body);
+          const nome = dados.nome;
+          const email = dados.email;
+
+          if (!validarUsuario(nome, email)) {
+            res.writeHead(400, {
+              "Content-Type": "text/plain; charset=utf-8",
+            });
+            res.end("Nome ou email inválido");
+            return;
+          }
+
+          const usuarioAtualizado: Usuario = {
+            id,
+            nome: nome.trim(),
+            email: email.trim(),
+          };
+
+          usuarios[indice] = usuarioAtualizado;
+
+          res.writeHead(200, {
+            "Content-Type": "application/json; charset=utf-8",
+          });
+          res.end(JSON.stringify(usuarioAtualizado));
+        } catch {
+          res.writeHead(400, {
+            "Content-Type": "text/plain; charset=utf-8",
+          });
+          res.end("JSON inválido");
+        }
+      });
+
+      return;
+    }
+
+    // DELETE /usuarios/:id — excluir usuário
     if (metodo === "DELETE") {
       if (indice === -1) {
         res.writeHead(404, {
           "Content-Type": "text/plain; charset=utf-8",
         });
-
         res.end("Usuário não encontrado");
         return;
       }
@@ -136,19 +171,27 @@ const server = createServer((req, res) => {
       res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
       });
-
       res.end(JSON.stringify(usuarioRemovido));
       return;
     }
   }
 
-  // Nenhuma rota correspondente
   res.writeHead(404, {
     "Content-Type": "text/plain; charset=utf-8",
   });
-
   res.end("Rota não encontrada");
 });
+
+function validarUsuario(nome: unknown, email: unknown): boolean {
+  return (
+    typeof nome === "string" &&
+    nome.trim() !== "" &&
+    typeof email === "string" &&
+    email.trim().includes("@") &&
+    !email.trim().startsWith("@") &&
+    !email.trim().endsWith("@")
+  );
+}
 
 server.listen(3000, () => {
   console.log("Servidor rodando na porta 3000");
