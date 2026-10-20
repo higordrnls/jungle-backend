@@ -11,13 +11,22 @@ const usuarios: Usuario[] = [];
 let proximoId = 1;
 
 const server = createServer((req, res) => {
-  if (req.url === "/usuarios" && req.method === "GET") {
+  const url = new URL(req.url ?? "/", "http://localhost:3000");
+  const rota = url.pathname;
+  const metodo = req.method;
+
+  // GET /usuarios — listar todos
+  if (rota === "/usuarios" && metodo === "GET") {
     res.writeHead(200, {
       "Content-Type": "application/json; charset=utf-8",
     });
 
     res.end(JSON.stringify(usuarios));
-  } else if (req.url === "/usuarios" && req.method === "POST") {
+    return;
+  }
+
+  // POST /usuarios — cadastrar usuário
+  if (rota === "/usuarios" && metodo === "POST") {
     let body = "";
 
     req.on("data", (chunk) => {
@@ -71,13 +80,74 @@ const server = createServer((req, res) => {
         res.end("JSON inválido");
       }
     });
-  } else {
-    res.writeHead(404, {
-      "Content-Type": "text/plain; charset=utf-8",
-    });
 
-    res.end("Rota não encontrada");
+    return;
   }
+
+  // Extrair o ID de rotas como /usuarios/1
+  const rotaUsuario = rota.match(/^\/usuarios\/(\d+)$/);
+
+  if (rotaUsuario) {
+    const id = Number(rotaUsuario[1]);
+
+    if (!Number.isSafeInteger(id) || id < 1) {
+      res.writeHead(400, {
+        "Content-Type": "text/plain; charset=utf-8",
+      });
+
+      res.end("ID inválido");
+      return;
+    }
+
+    const indice = usuarios.findIndex((usuario) => usuario.id === id);
+
+    // GET /usuarios/:id — buscar um usuário
+    if (metodo === "GET") {
+      if (indice === -1) {
+        res.writeHead(404, {
+          "Content-Type": "text/plain; charset=utf-8",
+        });
+
+        res.end("Usuário não encontrado");
+        return;
+      }
+
+      res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+      });
+
+      res.end(JSON.stringify(usuarios[indice]));
+      return;
+    }
+
+    // DELETE /usuarios/:id — excluir um usuário
+    if (metodo === "DELETE") {
+      if (indice === -1) {
+        res.writeHead(404, {
+          "Content-Type": "text/plain; charset=utf-8",
+        });
+
+        res.end("Usuário não encontrado");
+        return;
+      }
+
+      const [usuarioRemovido] = usuarios.splice(indice, 1);
+
+      res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+      });
+
+      res.end(JSON.stringify(usuarioRemovido));
+      return;
+    }
+  }
+
+  // Nenhuma rota correspondente
+  res.writeHead(404, {
+    "Content-Type": "text/plain; charset=utf-8",
+  });
+
+  res.end("Rota não encontrada");
 });
 
 server.listen(3000, () => {
